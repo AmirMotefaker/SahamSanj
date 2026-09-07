@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { LiveMarketRibbon } from "@/components/live-market-ribbon";
 
 type ProfileKey = "محافظه‌کار" | "متعادل" | "رشدگرا";
 
@@ -60,6 +61,7 @@ export function DecisionRoom() {
         </header>
 
         <div className="notice"><span>i</span> این محیط برای آموزش و مقایسهٔ قابل‌توضیح است؛ توصیهٔ خرید یا فروش ارائه نمی‌کند.</div>
+        <LiveMarketRibbon />
 
         <section className="control-grid" aria-label="کنترل‌های مقایسه">
           <article className="control-card profile-card">
