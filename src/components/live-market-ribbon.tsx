@@ -14,18 +14,7 @@ type MarketState = "loading" | "ready" | "unavailable";
 const trackedSymbols = new Set(["فولاد", "فملی", "شستا", "کگل", "شبندر"]);
 
 function buildMarketUrl() {
-  const query = new URLSearchParams({
-    market: "0",
-    withBestLimits: "false",
-    hEven: "0",
-    RefID: "0",
-  });
-
-  for (let index = 0; index < 9; index += 1) {
-    query.set(`paperTypes[${index}]`, String(index + 1));
-  }
-
-  return `https://cdn.tsetmc.com/api/ClosingPrice/GetMarketWatch?${query}`;
+  return "https://sahamsanj-market-gateway.amotef.workers.dev/market";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
