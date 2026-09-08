@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { LiveMarketRibbon } from "@/components/live-market-ribbon";
+import { CodalDisclosures } from "@/components/codal-disclosures";
 
 type ProfileKey = "محافظه‌کار" | "متعادل" | "رشدگرا";
 
@@ -62,6 +63,7 @@ export function DecisionRoom() {
 
         <div className="notice"><span>i</span> این محیط برای آموزش و مقایسهٔ قابل‌توضیح است؛ توصیهٔ خرید یا فروش ارائه نمی‌کند.</div>
         <LiveMarketRibbon />
+        <CodalDisclosures symbol={selected[0]} />
 
         <section className="control-grid" aria-label="کنترل‌های مقایسه">
           <article className="control-card profile-card">
