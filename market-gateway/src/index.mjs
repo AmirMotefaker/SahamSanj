@@ -153,7 +153,7 @@ const gateway = {
           ),
           marketValue: captureArenaValue(
             text,
-            /\u0627\u0631\u0632\u0634\s+\u0628\u0627\u0632\u0627\u0631\s+(.+?)\s+\u0634\u0646\u0627\u0648\u0631\u06cc/
+            /\u062a\u0639\u062f\u0627\u062f\s+\u0633\u0647\u0627\u0645\s+.+?\s+\u0627\u0631\u0632\u0634\s+\u0628\u0627\u0632\u0627\u0631\s+(.+?)\s+\u0634\u0646\u0627\u0648\u0631\u06cc/
           ),
           floatPercentage: captureArenaValue(
             text,
