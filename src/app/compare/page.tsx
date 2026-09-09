@@ -41,7 +41,7 @@ export default function ComparePage(){
         const r=await fetch(`${g}/traders/symbol?id=${x}`,{cache:"no-store"});
         if(!r.ok)throw new Error("یکی از پروفایل‌های عمومی قابل دریافت نیست.");
         const p=await r.json() as P;
-        if(!p.fields.marketValue)throw new Error("دادهٔ یک پروفایل کامل نیست.");
+        
         return {id:x,p};
       }));
       setData(result);

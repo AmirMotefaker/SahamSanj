@@ -292,14 +292,6 @@ const gateway = {
           ),
         };
 
-        if (!fields.shareCount && !fields.marketValue && !fields.eps) {
-          return json(
-            { error: "Public profile did not include usable static fields" },
-            502,
-            headers
-          );
-        }
-
         return json(
           {
             source: "TradersArena public profile",
