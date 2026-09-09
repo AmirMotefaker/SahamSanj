@@ -42,6 +42,51 @@ function time(value: string) {
   }).format(new Date(value));
 }
 
+const publicGateway = "https://sahamsanj-market-gateway.amotef.workers.dev";
+
+function normalizeSymbol(value: string) {
+  return value
+    .trim()
+    .replace(/[يى]/g, "ی")
+    .replace(/ك/g, "ک")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+async function resolvePublicId(value: string) {
+  const direct = value.match(/\d{8,24}/)?.[0];
+
+  if (direct) {
+    return direct;
+  }
+
+  const term = value.trim();
+
+  if (!term) {
+    return null;
+  }
+
+  const response = await fetch(
+    `${publicGateway}/traders/resolve?q=${encodeURIComponent(term)}`,
+    { cache: "no-store" }
+  );
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = (await response.json()) as {
+    candidates?: Array<{ id: string; symbol: string }>;
+  };
+
+  const wanted = normalizeSymbol(term);
+
+  return (
+    payload.candidates?.find(
+      (candidate) => normalizeSymbol(candidate.symbol) === wanted
+    )?.id ?? null
+  );
+}
 export default function LivePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [history, setHistory] = useState<History | null>(null);
@@ -113,23 +158,27 @@ export default function LivePage() {
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
             <label className="text-sm font-bold text-slate-600">
-              شناسه یا لینک عمومی نماد
+              نام نماد، شناسه یا لینک عمومی
               <input
                 value={profileInput}
                 onChange={(event) => setProfileInput(event.target.value)}
                 className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-left font-normal outline-none focus:border-teal-600 sm:w-72"
-                dir="ltr"
-                inputMode="numeric"
+                dir="auto"
+                
               />
             </label>
             <button
               onClick={() => {
-                const next = profileInput.match(/\d{8,24}/)?.[0];
-                if (!next) {
-                  setError("شناسهٔ عمومی معتبر وارد نشده است.");
-                  return;
-                }
-                setProfileId(next);
+                void (async () => {
+                  const next = await resolvePublicId(profileInput);
+
+                  if (!next) {
+                    setError("نام نماد، شناسه یا لینک عمومیِ معتبر وارد نشده است.");
+                    return;
+                  }
+
+                  setProfileId(next);
+                })();
               }}
               disabled={loading}
               className="rounded-2xl bg-slate-950 px-5 py-3 font-bold text-white transition hover:bg-teal-800 disabled:opacity-60"
