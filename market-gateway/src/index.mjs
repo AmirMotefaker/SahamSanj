@@ -68,6 +68,57 @@ function normalizeArenaText(html) {
     .trim();
 }
 
+function decodeArenaHtml(value) {
+  return value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&#x27;/gi, "'");
+}
+
+function arenaCellText(fragment) {
+  return decodeArenaHtml(fragment.replace(/<[^>]+>/g, " "))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function arenaRowCells(rowHtml) {
+  const cells = rowHtml.match(/<(?:th|td)\b[^>]*>[\s\S]*?<\/(?:th|td)>/gi) || [];
+
+  return cells.map(arenaCellText).filter(Boolean);
+}
+
+function parseArenaHistory(html) {
+  const tables = html.match(/<table\b[^>]*>[\s\S]*?<\/table>/gi) || [];
+  const datePattern = /^(?:13|14)\d{2}\/\d{1,2}\/\d{1,2}$/;
+
+  for (const table of tables) {
+    const rows = (table.match(/<tr\b[^>]*>[\s\S]*?<\/tr>/gi) || [])
+      .map(arenaRowCells)
+      .filter((cells) => cells.length > 0);
+
+    const dataRows = rows.filter((cells) => datePattern.test(cells[0] || ""));
+
+    if (dataRows.length === 0) {
+      continue;
+    }
+
+    const header = rows.find(
+      (cells) => !datePattern.test(cells[0] || "") && cells.length >= dataRows[0].length
+    );
+
+    return {
+      columns:
+        header && header.length === dataRows[0].length
+          ? header
+          : dataRows[0].map((_, index) => `ستون ${index + 1}`),
+      rows: dataRows.slice(0, 10),
+    };
+  }
+
+  return null;
+}
 function captureArenaValue(text, pattern) {
   const match = text.match(pattern);
   return match ? match[1].trim() : null;
@@ -191,6 +242,48 @@ const gateway = {
         );
       } catch {
         return json({ error: "Public profile request failed" }, 502, headers);
+      }
+    }
+    if (url.pathname === "/traders/history") {
+      const id = url.searchParams.get("id") || "";
+
+      if (!/^\d{8,24}$/.test(id)) {
+        return json({ error: "A valid public profile id is required" }, 400, headers);
+      }
+
+      const sourceUrl = `https://tradersarena.ir/${id}/history`;
+
+      try {
+        const upstream = await fetch(sourceUrl, {
+          headers: {
+            Accept: "text/html,application/xhtml+xml",
+            "Accept-Language": "fa-IR,fa;q=0.9",
+          },
+        });
+
+        if (!upstream.ok) {
+          return json({ error: "Public history source unavailable" }, 502, headers);
+        }
+
+        const history = parseArenaHistory(await upstream.text());
+
+        if (!history || history.rows.length === 0) {
+          return json({ error: "No public history rows were found" }, 502, headers);
+        }
+
+        return json(
+          {
+            source: "TradersArena public history",
+            sourceUrl,
+            fetchedAt: new Date().toISOString(),
+            persistence: "none",
+            ...history,
+          },
+          200,
+          headers
+        );
+      } catch {
+        return json({ error: "Public history request failed" }, 502, headers);
       }
     }
     return json({ error: "Not found" }, 404, headers);
