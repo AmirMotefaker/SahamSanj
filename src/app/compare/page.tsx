@@ -9,6 +9,21 @@ const rows:Array<[keyof F,string]>=[["marketValue","ارزش بازار"],["eps"
 
 function fa(v:string|null|undefined){return v?v.replace(/\bB\b/g,"میلیارد").replace(/\bM\b/g,"میلیون").replace(/\d/g,d=>ds[Number(d)]):"—"}
 function id(v:string){return v.match(/\d{8,24}/)?.[0]??null}
+function normalizeSymbol(v:string){return v.trim().replace(/[يى]/g,"ی").replace(/ك/g,"ک").replace(/\s+/g," ").toLowerCase()}
+async function resolvePublicId(value:string){
+  const direct=id(value);
+  if(direct)return direct;
+
+  const term=value.trim();
+  if(!term)return null;
+
+  const response=await fetch(`${g}/traders/resolve?q=${encodeURIComponent(term)}`,{cache:"no-store"});
+  if(!response.ok)return null;
+
+  const payload=(await response.json()) as {candidates?:Array<{id:string;symbol:string}>};
+  const wanted=normalizeSymbol(term);
+  return payload.candidates?.find(candidate=>normalizeSymbol(candidate.symbol)===wanted)?.id??null;
+}
 function time(v:string){return new Intl.DateTimeFormat("fa-IR",{dateStyle:"short",timeStyle:"medium",hour12:false}).format(new Date(v))}
 
 export default function ComparePage(){
@@ -17,8 +32,9 @@ export default function ComparePage(){
   const [error,setError]=useState(""); const [loading,setLoading]=useState(false);
 
   async function compare(){
-    const ids=[...new Set(input.map(id).filter((x):x is string=>Boolean(x)))];
-    if(ids.length<2){setError("دست‌کم دو شناسه یا لینک عمومیِ متفاوت وارد کن.");setData([]);return}
+    const resolved=await Promise.all(input.map(resolvePublicId));
+    const ids=[...new Set(resolved.filter((x):x is string=>Boolean(x)))];
+    if(ids.length<2){setError("دست‌کم دو نماد، شناسه یا لینک عمومیِ متفاوت وارد کن.");setData([]);return}
     setLoading(true);setError("");
     try{
       const result=await Promise.all(ids.map(async x=>{
@@ -43,11 +59,11 @@ export default function ComparePage(){
       <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="grid gap-3 lg:grid-cols-4">
           {input.map((v,i)=><label key={i} className="text-sm font-bold text-slate-700">نماد {fa(String(i+1))}
-            <input value={v} onChange={e=>setInput(a=>a.map((x,n)=>n===i?e.target.value:x))} placeholder="شناسه یا لینک عمومی" dir="ltr" className="mt-2 block w-full rounded-xl border border-slate-300 px-3 py-3 text-left font-normal outline-none focus:border-teal-600"/>
+            <input value={v} onChange={e=>setInput(a=>a.map((x,n)=>n===i?e.target.value:x))} placeholder="مثلاً فولاد، فزر یا عیار" dir="ltr" className="mt-2 block w-full rounded-xl border border-slate-300 px-3 py-3 text-left font-normal outline-none focus:border-teal-600"/>
           </label>)}
           <button onClick={()=>void compare()} disabled={loading} className="min-h-12 rounded-2xl bg-slate-950 px-5 font-bold text-white disabled:opacity-60">{loading?"در حال دریافت…":"مقایسه"}</button>
         </div>
-        <p className="mt-3 text-sm text-slate-500">شناسه از لینک عمومی تریدرزآرنا خوانده می‌شود.</p>
+        <p className="mt-3 text-sm text-slate-500">نام نماد، شناسه یا لینک عمومی تریدرزآرنا را وارد کن.</p>
       </section>
 
       {error&&<section className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-5 font-bold text-rose-900">{error}</section>}
