@@ -7,7 +7,7 @@ type Profile = { source: string; sourceUrl: string; fetchedAt: string; fields: F
 type History = { sourceUrl: string; fetchedAt: string; columns: string[]; rows: string[][] };
 
 const gateway = "https://sahamsanj-market-gateway.amotef.workers.dev";
-const id = "46348559193224090";
+const defaultProfileId = "46348559193224090";
 
 const fundamentals: Array<[keyof Fields, string]> = [
   ["marketValue", "ارزش بازار"],
@@ -47,6 +47,8 @@ export default function LivePage() {
   const [history, setHistory] = useState<History | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [profileId, setProfileId] = useState(defaultProfileId);
+  const [profileInput, setProfileInput] = useState(defaultProfileId);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -54,8 +56,8 @@ export default function LivePage() {
 
     try {
       const [profileResponse, historyResponse] = await Promise.all([
-        fetch(`${gateway}/traders/symbol?id=${id}`, { cache: "no-store" }),
-        fetch(`${gateway}/traders/history?id=${id}`, { cache: "no-store" }),
+        fetch(`${gateway}/traders/symbol?id=${profileId}`, { cache: "no-store" }),
+        fetch(`${gateway}/traders/history?id=${profileId}`, { cache: "no-store" }),
       ]);
 
       if (!profileResponse.ok || !historyResponse.ok) {
@@ -76,7 +78,7 @@ export default function LivePage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [profileId]);
 
   useEffect(() => {
     const kickoff = window.setTimeout(() => {
@@ -104,15 +106,37 @@ export default function LivePage() {
         <header className="mb-6 flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm font-bold text-teal-700">دادهٔ عمومی، بدون ذخیره‌سازی</p>
-            <h1 className="mt-1 text-3xl font-black sm:text-4xl">نمای زندهٔ نماد فولاد</h1>
+            <h1 className="mt-1 text-3xl font-black sm:text-4xl">نمای زندهٔ نماد</h1>
             <p className="mt-2 max-w-3xl leading-7 text-slate-600">
               همهٔ اعداد به فارسی نمایش داده می‌شوند. این صفحه فقط برای مشاهده و مقایسهٔ داده است و توصیهٔ خرید یا فروش نیست.
             </p>
           </div>
-          <button onClick={() => void refresh()} disabled={loading}
-            className="rounded-2xl bg-slate-950 px-5 py-3 font-bold text-white transition hover:bg-teal-800 disabled:opacity-60">
-            {loading ? "در حال دریافت…" : "به‌روزرسانی داده"}
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <label className="text-sm font-bold text-slate-600">
+              شناسه یا لینک عمومی نماد
+              <input
+                value={profileInput}
+                onChange={(event) => setProfileInput(event.target.value)}
+                className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-left font-normal outline-none focus:border-teal-600 sm:w-72"
+                dir="ltr"
+                inputMode="numeric"
+              />
+            </label>
+            <button
+              onClick={() => {
+                const next = profileInput.match(/\d{8,24}/)?.[0];
+                if (!next) {
+                  setError("شناسهٔ عمومی معتبر وارد نشده است.");
+                  return;
+                }
+                setProfileId(next);
+              }}
+              disabled={loading}
+              className="rounded-2xl bg-slate-950 px-5 py-3 font-bold text-white transition hover:bg-teal-800 disabled:opacity-60"
+            >
+              {loading ? "در حال دریافت…" : "نمایش نماد"}
+            </button>
+          </div>
         </header>
 
         {error ? <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 font-bold text-rose-900">{error}</section> : null}
@@ -123,8 +147,8 @@ export default function LivePage() {
           <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-col gap-3 bg-gradient-to-l from-teal-50 to-white p-6 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="font-bold text-teal-700">فولاد مبارکه اصفهان</p>
-                <h2 className="mt-1 text-3xl font-black">فولاد</h2>
+                <p className="font-bold text-teal-700">پروفایل عمومی انتخاب‌شده</p>
+                <h2 className="mt-1 text-3xl font-black">شناسهٔ {fa(profileId)}</h2>
               </div>
               <div className="rounded-xl bg-white px-4 py-3 text-sm shadow-sm">
                 زمان دقیق دریافت داده: <strong>{time(profile.fetchedAt)}</strong>
