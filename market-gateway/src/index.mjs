@@ -32,6 +32,9 @@ function marketUrl() {
   return `https://cdn.tsetmc.com/api/ClosingPrice/GetMarketWatch?${query}`;
 }
 
+function arenaSearchUrl(query) {
+  return `https://tradersarena.ir/searchData?keyword=${encodeURIComponent(query)}`;
+}
 function codalUrl(symbol) {
   const query = new URLSearchParams({
     Audited: "true",
@@ -185,6 +188,61 @@ const gateway = {
       }
 
   
+    if (url.pathname === "/traders/resolve") {
+      const query = (url.searchParams.get("q") || "").trim();
+
+      if (!query || query.length > 64) {
+        return json({ error: "نام نماد معتبر وارد نشده است." }, 400, headers);
+      }
+
+      try {
+        const upstream = await fetch(arenaSearchUrl(query), {
+          headers: {
+            Accept: "application/json, text/javascript, */*; q=0.01",
+            "Accept-Language": "fa-IR,fa;q=0.9",
+            "X-Requested-With": "XMLHttpRequest",
+          },
+        });
+
+        if (!upstream.ok) {
+          return json({ error: "جست‌وجوی عمومی نماد در دسترس نیست." }, 502, headers);
+        }
+
+        const payload = await upstream.json();
+
+        if (!Array.isArray(payload)) {
+          return json({ error: "پاسخ جست‌وجوی عمومی معتبر نیست." }, 502, headers);
+        }
+
+        const candidates = payload
+          .filter(
+            (item) =>
+              Array.isArray(item) &&
+              /^\d{8,24}$/.test(String(item[0] || "")) &&
+              typeof item[1] === "string"
+          )
+          .slice(0, 20)
+          .map((item) => ({
+            id: String(item[0]),
+            symbol: item[1].trim(),
+            name: typeof item[2] === "string" ? item[2].trim() : "",
+          }));
+
+        return json(
+          {
+            query,
+            source: "TradersArena public search",
+            fetchedAt: new Date().toISOString(),
+            persistence: "none",
+            candidates,
+          },
+          200,
+          headers
+        );
+      } catch {
+        return json({ error: "دریافت جست‌وجوی عمومی ناموفق بود." }, 502, headers);
+      }
+    }
     if (url.pathname === "/traders/symbol") {
       const id = url.searchParams.get("id") || "";
 
