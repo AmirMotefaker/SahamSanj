@@ -2,7 +2,7 @@
 import { useState } from "react";
 
 type F=Record<"shareCount"|"marketValue"|"floatPercentage"|"eps"|"pe"|"groupPe",string|null>;
-type P={sourceUrl:string;fetchedAt:string;fields:F};
+type P={sourceUrl:string;fetchedAt:string;symbol?:string;fields:F};
 const g="https://sahamsanj-market-gateway.amotef.workers.dev";
 const ds="۰۱۲۳۴۵۶۷۸۹";
 const rows:Array<[keyof F,string]>=[["marketValue","ارزش بازار"],["eps","سود هر سهم"],["pe","نسبت قیمت به سود"],["groupPe","نسبت قیمت به سود گروه"],["floatPercentage","سهام شناور"],["shareCount","تعداد سهام"]];
@@ -54,7 +54,7 @@ export default function ComparePage(){
 
       {data.length>0&&<><section className="mt-6 grid gap-4 lg:grid-cols-3">
         {data.map(({id,p},i)=><article key={id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="font-bold text-teal-700">نماد {fa(String(i+1))}</p><h2 className="mt-1 break-all text-xl font-black">شناسهٔ {fa(id)}</h2>
+          <p className="font-bold text-teal-700">نماد {fa(String(i+1))}</p><h2 className="mt-1 break-all text-xl font-black">{p.symbol || `نماد ${fa(String(i+1))}`}</h2>
           <div className="mt-4 grid grid-cols-2 gap-4 border-t pt-4"><p>ارزش بازار<strong className="mt-1 block">{fa(p.fields.marketValue)}</strong></p><p>سود هر سهم<strong className="mt-1 block">{fa(p.fields.eps)}</strong></p></div>
           <p className="mt-4 text-sm text-slate-500">زمان دریافت: {time(p.fetchedAt)}</p>
         </article>)}
@@ -63,7 +63,7 @@ export default function ComparePage(){
       <section className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b p-5"><p className="font-bold text-teal-700">جدول هم‌ردیف</p><h2 className="text-2xl font-black">معیارهای پایهٔ قابل مشاهده</h2></div>
         <div className="overflow-x-auto"><table className="min-w-[760px] w-full text-right">
-          <thead className="bg-slate-100"><tr><th className="p-4">معیار</th>{data.map(({id},i)=><th className="p-4" key={id}>نماد {fa(String(i+1))}</th>)}</tr></thead>
+          <thead className="bg-slate-100"><tr><th className="p-4">معیار</th>{data.map(({id,p},i)=><th className="p-4" key={id}>{p.symbol || `نماد ${fa(String(i+1))}`}</th>)}</tr></thead>
           <tbody>{rows.map(([key,label])=><tr className="border-t" key={key}><th className="bg-slate-50 p-4">{label}</th>{data.map(({id,p})=><td className="p-4 font-black" key={id}>{fa(p.fields[key])}</td>)}</tr>)}</tbody>
         </table></div>
       </section>

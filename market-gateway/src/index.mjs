@@ -119,6 +119,17 @@ function parseArenaHistory(html) {
 
   return null;
 }
+function arenaSymbol(html) {
+  const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "";
+
+  return title
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(/[|\-\u2013\u2014]/)[0]
+    .trim();
+}
 function captureArenaValue(text, pattern) {
   const match = text.match(pattern);
   return match ? match[1].trim() : null;
@@ -195,7 +206,9 @@ const gateway = {
           return json({ error: "Public profile source unavailable" }, 502, headers);
         }
 
-        const text = normalizeArenaText(await upstream.text());
+        const html = await upstream.text();
+        const text = normalizeArenaText(html);
+        const symbol = arenaSymbol(html) || `نماد ${id}`;
 
         const fields = {
           shareCount: captureArenaValue(
@@ -232,6 +245,7 @@ const gateway = {
         return json(
           {
             source: "TradersArena public profile",
+            symbol,
             sourceUrl: profileUrl,
             fetchedAt: new Date().toISOString(),
             persistence: "none",

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 type Fields = Record<"shareCount" | "marketValue" | "floatPercentage" | "eps" | "pe" | "groupPe", string | null>;
-type Profile = { source: string; sourceUrl: string; fetchedAt: string; fields: Fields };
+type Profile = { source: string; sourceUrl: string; fetchedAt: string; symbol?: string; fields: Fields };
 type History = { sourceUrl: string; fetchedAt: string; columns: string[]; rows: string[][] };
 
 const gateway = "https://sahamsanj-market-gateway.amotef.workers.dev";
@@ -148,7 +148,7 @@ export default function LivePage() {
             <div className="flex flex-col gap-3 bg-gradient-to-l from-teal-50 to-white p-6 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-bold text-teal-700">پروفایل عمومی انتخاب‌شده</p>
-                <h2 className="mt-1 text-3xl font-black">شناسهٔ {fa(profileId)}</h2>
+                <h2 className="mt-1 text-3xl font-black">{profile.symbol || `نماد ${fa(profileId)}`}</h2>
               </div>
               <div className="rounded-xl bg-white px-4 py-3 text-sm shadow-sm">
                 زمان دقیق دریافت داده: <strong>{time(profile.fetchedAt)}</strong>
