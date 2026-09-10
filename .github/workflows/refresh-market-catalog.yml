@@ -1,0 +1,109 @@
+name: به‌روزرسانی فهرست رسمی بازار
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: دریافت و ساخت فهرست
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs/promises");
+
+          const marketUrl =
+            "https://cdn.tsetmc.com/api/ClosingPrice/GetMarketWatch?market=0&showTraded=false&withBestLimits=true&hEven=0&RefID=0&paperTypes%5B0%5D=1&paperTypes%5B1%5D=2&paperTypes%5B2%5D=3&paperTypes%5B3%5D=4&paperTypes%5B4%5D=5&paperTypes%5B5%5D=6&paperTypes%5B6%5D=7&paperTypes%5B7%5D=8&paperTypes%5B8%5D=9";
+          const staticUrl = "https://cdn.tsetmc.com/api/StaticData/GetStaticData";
+
+          async function getJson(url) {
+            let lastError;
+            for (let attempt = 1; attempt <= 5; attempt += 1) {
+              try {
+                const response = await fetch(url, {
+                  headers: {
+                    Accept: "application/json, text/plain, */*",
+                    Referer: "https://www.tsetmc.com/MarketWatch",
+                  },
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return await response.json();
+              } catch (error) {
+                lastError = error;
+                await new Promise((resolve) => setTimeout(resolve, attempt * 3000));
+              }
+            }
+            throw lastError;
+          }
+
+          const [market, staticData] = await Promise.all([
+            getJson(marketUrl),
+            getJson(staticUrl),
+          ]);
+
+          const names = new Map(
+            (staticData.staticData || [])
+              .filter((item) => item.type === "IndustrialGroup")
+              .map((item) => [String(item.code).trim(), String(item.name).trim()])
+          );
+
+          const buckets = new Map();
+          for (const item of market.marketwatch || []) {
+            const id = String(item.insCode || "").trim();
+            const symbol = String(item.lva || "").trim();
+            const name = String(item.lvc || "").trim();
+
+            if (!/^\d{8,24}$/.test(id) || !symbol) continue;
+
+            const code = String(item.csv || "").trim() || "other";
+            const group = buckets.get(code) || {
+              code,
+              name: names.get(code) || "سایر ابزارهای بازار",
+              symbols: [],
+            };
+
+            group.symbols.push({ id, symbol, name });
+            buckets.set(code, group);
+          }
+
+          const groups = [...buckets.values()]
+            .map((group) => ({
+              ...group,
+              symbols: group.symbols.sort((a, b) => a.symbol.localeCompare(b.symbol, "fa")),
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name, "fa"));
+
+          const allSymbols = groups.flatMap((group) => group.symbols);
+          if (groups.length < 20 || allSymbols.length < 1000) {
+            throw new Error("فهرست رسمی کامل دریافت نشد.");
+          }
+
+          await fs.mkdir("public", { recursive: true });
+          await fs.writeFile(
+            "public/market-catalog.json",
+            JSON.stringify({
+              source: "فهرست عمومی رسمی بازار",
+              generatedAt: new Date().toISOString(),
+              groups,
+            }),
+            "utf8"
+          );
+
+          console.log(`گروه‌ها: ${groups.length} | نمادها: ${allSymbols.length}`);
+          NODE
+
+      - name: ثبت فهرست
+        run: |
+          git config user.name "SahamSanj Catalog Bot"
+          git config user.email "catalog-bot@users.noreply.github.com"
+          git add public/market-catalog.json
+          git commit -m "chore(data): refresh official market catalog" || exit 0
+          git push

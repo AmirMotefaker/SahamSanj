@@ -38,11 +38,6 @@ type Item = {
 
 const gateway = "https://sahamsanj-market-gateway.amotef.workers.dev";
 const digits = "۰۱۲۳۴۵۶۷۸۹";
-const officialMarketUrl =
-  "https://cdn.tsetmc.com/api/ClosingPrice/GetMarketWatch?market=0&showTraded=false&withBestLimits=true&hEven=0&RefID=0&paperTypes%5B0%5D=1&paperTypes%5B1%5D=2&paperTypes%5B2%5D=3&paperTypes%5B3%5D=4&paperTypes%5B4%5D=5&paperTypes%5B5%5D=6&paperTypes%5B6%5D=7&paperTypes%5B7%5D=8&paperTypes%5B8%5D=9";
-const officialStaticDataUrl =
-  "https://cdn.tsetmc.com/api/StaticData/GetStaticData";
-
 const basicRows: Array<[keyof Fields, string]> = [
   ["marketValue", "ارزش بازار"],
   ["eps", "سود هر سهم"],
@@ -151,65 +146,26 @@ export default function ComparePage() {
 
     void (async () => {
       try {
-        const [marketResponse, staticResponse] = await Promise.all([
-          fetch(officialMarketUrl, { cache: "no-store" }),
-          fetch(officialStaticDataUrl, { cache: "no-store" }),
-        ]);
+        const response = await fetch("/SahamSanj/market-catalog.json", {
+          cache: "no-store",
+        });
 
-        if (!marketResponse.ok || !staticResponse.ok) {
-          throw new Error("فهرست رسمی نمادها در دسترس نیست.");
+        if (!response.ok) {
+          throw new Error("فهرست رسمی نمادها هنوز آماده نشده است.");
         }
 
-        const [marketPayload, staticPayload] = (await Promise.all([
-          marketResponse.json(),
-          staticResponse.json(),
-        ])) as [
-          { marketwatch?: Array<Record<string, unknown>> },
-          { staticData?: Array<{ code?: string | number; name?: string; type?: string }> }
-        ];
+        const payload = (await response.json()) as { groups?: CatalogGroup[] };
+        const groups = Array.isArray(payload.groups) ? payload.groups : [];
 
-        const names = new Map(
-          (staticPayload.staticData ?? [])
-            .filter((item) => item.type === "IndustrialGroup")
-            .map((item) => [
-              String(item.code ?? "").trim(),
-              String(item.name ?? "").trim(),
-            ])
-        );
-
-        const grouped = new Map<string, CatalogGroup>();
-
-        for (const record of marketPayload.marketwatch ?? []) {
-          const id = String(record.insCode ?? "").trim();
-          const symbol = String(record.lva ?? "").trim();
-          const name = String(record.lvc ?? "").trim();
-
-          if (!/^\d{8,24}$/.test(id) || !symbol) continue;
-
-          const code = String(record.csv ?? "").trim() || "other";
-          const group = grouped.get(code) ?? {
-            code,
-            name: names.get(code) || "سایر ابزارهای بازار",
-            symbols: [],
-          };
-
-          group.symbols.push({ id, symbol, name });
-          grouped.set(code, group);
+        if (groups.length === 0) {
+          throw new Error("فهرست رسمی نمادها خالی است.");
         }
-
-        const groups = [...grouped.values()]
-          .map((group) => ({
-            ...group,
-            symbols: group.symbols.sort((left, right) =>
-              left.symbol.localeCompare(right.symbol, "fa")
-            ),
-          }))
-          .sort((left, right) => left.name.localeCompare(right.name, "fa"));
 
         if (!active) return;
 
         setCatalog(groups);
         setSelectedGroup(groups[0]?.code ?? "");
+        setCatalogError("");
       } catch (cause) {
         if (!active) return;
 
@@ -227,7 +183,6 @@ export default function ComparePage() {
       active = false;
     };
   }, []);
-
   async function compare() {
     const entered = input.map((value) => value.trim()).filter(Boolean);
 
@@ -406,7 +361,7 @@ export default function ComparePage() {
           ) : null}
 
           <p className="mt-4 text-sm leading-7 text-slate-600">
-            فهرست از دیده‌بان و دادهٔ ثابت عمومی TSETMC خوانده می‌شود. پس از افزودن، دکمهٔ «مقایسهٔ نمادها» را بزن.
+            فهرست رسمی بازار همراه همین نسخه بارگذاری می‌شود. پس از افزودن، دکمهٔ «مقایسهٔ نمادها» را بزن.
           </p>
         </section>
 
