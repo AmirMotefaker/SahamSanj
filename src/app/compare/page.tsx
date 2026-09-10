@@ -393,7 +393,7 @@ export default function ComparePage() {
 
                   setInput((current) =>
                     current.map((item, index) =>
-                      index === targetSlot ? symbol.symbol : item
+                      index === targetSlot ? symbol.id : item
                     )
                   );
                   setCatalogError("");
