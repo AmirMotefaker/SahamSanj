@@ -1,0 +1,16 @@
+﻿name: Feature
+description: Propose a user-facing capability
+labels: ["type: feature"]
+body:
+  - type: textarea
+    attributes:
+      label: Problem
+      description: Which shareholder problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Acceptance criteria
+      description: Testable outcomes
+    validations:
+      required: true
