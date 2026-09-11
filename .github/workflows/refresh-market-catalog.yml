@@ -17,90 +17,65 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build catalog from official public sources
+      - name: Probe official legacy market workbook
         run: |
-          node <<'NODE'
-          const marketUrl = "https://cdn.tsetmc.com/api/ClosingPrice/GetMarketWatch?market=0&showTraded=false&withBestLimits=true&hEven=0&RefID=0&paperTypes%5B0%5D=1&paperTypes%5B1%5D=2&paperTypes%5B2%5D=3&paperTypes%5B3%5D=4&paperTypes%5B4%5D=5&paperTypes%5B5%5D=6&paperTypes%5B6%5D=7&paperTypes%5B7%5D=8&paperTypes%5B8%5D=9";
-          const staticUrl = "https://cdn.tsetmc.com/api/StaticData/GetStaticData";
+          python3 - <<'PY'
+          import io
+          import urllib.request
+          import zipfile
+          import xml.etree.ElementTree as ET
 
-          async function getJson(url) {
-            let lastError;
-            for (let attempt = 1; attempt <= 5; attempt++) {
-              try {
-                const response = await fetch(url, {
-                  headers: {
-                    Accept: "application/json, text/plain, */*",
-                    Referer: "https://www.tsetmc.com/MarketWatch",
-                  },
-                });
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const payload = await response.json();
-                if (!payload) throw new Error("empty payload");
-                return payload;
-              } catch (error) {
-                lastError = error;
-                await new Promise((resolve) => setTimeout(resolve, attempt * 3000));
-              }
-            }
-            throw lastError;
-          }
+          url = "https://old.tsetmc.com/tsev2/excel/MarketWatchPlus.aspx?d=0"
+          request = urllib.request.Request(
+              url,
+              headers={
+                  "User-Agent": "Mozilla/5.0",
+                  "Referer": "https://www.tsetmc.com/MarketWatch",
+                  "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, */*",
+              },
+          )
 
-          const [market, staticData] = await Promise.all([
-            getJson(marketUrl),
-            getJson(staticUrl),
-          ]);
+          with urllib.request.urlopen(request, timeout=120) as response:
+              content = response.read()
+              print("legacy_status=", response.status)
+              print("legacy_content_type=", response.headers.get("Content-Type"))
+              print("legacy_bytes=", len(content))
 
-          const groupNames = new Map(
-            (staticData.staticData || [])
-              .filter((item) => item.type === "IndustrialGroup")
-              .map((item) => [String(item.code).trim(), String(item.name).trim()])
-          );
+          if len(content) < 10000 or content[:2] != b"PK":
+              raise RuntimeError("Legacy endpoint did not return a usable XLSX workbook.")
 
-          const buckets = new Map();
+          with zipfile.ZipFile(io.BytesIO(content)) as workbook:
+              names = workbook.namelist()
+              print("xlsx_entries=", len(names))
+              print("xlsx_has_sheet=", "xl/worksheets/sheet1.xml" in names)
 
-          for (const record of market.marketwatch || []) {
-            const id = String(record.insCode || "").trim();
-            const symbol = String(record.lva || "").trim();
-            const name = String(record.lvc || "").trim();
+              shared = []
+              if "xl/sharedStrings.xml" in names:
+                  root = ET.fromstring(workbook.read("xl/sharedStrings.xml"))
+                  ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+                  for item in root.findall(f"{ns}si"):
+                      shared.append("".join(node.text or "" for node in item.iter(f"{ns}t")))
 
-            if (!/^\d{8,24}$/.test(id) || !symbol) continue;
+              sheet = ET.fromstring(workbook.read("xl/worksheets/sheet1.xml"))
+              ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 
-            const code = String(record.csv || "").trim() || "other";
-            if (!buckets.has(code)) buckets.set(code, []);
-            buckets.get(code).push({ id, symbol, name });
-          }
-
-          const groups = [...buckets.entries()]
-            .map(([code, symbols]) => ({
-              code,
-              name: groupNames.get(code) || "سایر ابزارهای بازار",
-              symbols: symbols.sort((a, b) => a.symbol.localeCompare(b.symbol, "fa")),
-            }))
-            .sort((a, b) => a.name.localeCompare(b.name, "fa"));
-
-          if (groups.length < 20) throw new Error("Official catalog is unexpectedly incomplete.");
-
-          const catalog = {
-            source: "فهرست عمومی رسمی بازار",
-            generatedAt: new Date().toISOString(),
-            groups,
-          };
-
-          await (await import("node:fs/promises")).writeFile(
-            "public/market-catalog.json",
-            JSON.stringify(catalog),
-            "utf8"
-          );
-
-          console.log(`groups=${groups.length}`);
-          console.log(`symbols=${groups.reduce((sum, group) => sum + group.symbols.length, 0)}`);
-          NODE
+              for number, row in enumerate(sheet.findall(f".//{ns}row")[:5], start=1):
+                  values = []
+                  for cell in row.findall(f"{ns}c"):
+                      value = cell.find(f"{ns}v")
+                      if value is None:
+                          values.append("")
+                          continue
+                      raw = value.text or ""
+                      values.append(shared[int(raw)] if cell.get("t") == "s" else raw)
+                  print(f"row_{number}=", values[:20])
+          PY
 
       - name: Commit refreshed catalog
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/market-catalog.json
+          test -f public/market-catalog.json || exit 0`n          git add public/market-catalog.json
           git diff --cached --quiet && exit 0
           git commit -m "chore(data): refresh official market catalog"
           git push
