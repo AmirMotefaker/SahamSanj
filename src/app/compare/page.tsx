@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import SymbolPicker from "@/components/symbol-picker";
 
 type Fields = Record<
   "shareCount" | "marketValue" | "floatPercentage" | "eps" | "pe" | "groupPe",
@@ -210,22 +211,18 @@ export default function ComparePage() {
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="grid gap-3 lg:grid-cols-4">
             {input.map((value, index) => (
-              <label key={index} className="text-sm font-bold text-slate-700">
-                نماد {fa(String(index + 1))}
-                <input
-                  value={value}
-                  onChange={(event) =>
-                    setInput((current) =>
-                      current.map((item, itemIndex) =>
-                        itemIndex === index ? event.target.value : item
-                      )
+              <SymbolPicker
+                key={index}
+                index={index}
+                value={value}
+                onChange={(nextValue) =>
+                  setInput((current) =>
+                    current.map((item, itemIndex) =>
+                      itemIndex === index ? nextValue : item
                     )
-                  }
-                  placeholder="مثلاً فولاد، فزر یا عیار"
-                  dir="auto"
-                  className="mt-2 block w-full rounded-xl border border-slate-300 px-3 py-3 font-normal outline-none focus:border-teal-600"
-                />
-              </label>
+                  )
+                }
+              />
             ))}
             <button
               type="button"
