@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 type Fields = Record<
   "shareCount" | "marketValue" | "floatPercentage" | "eps" | "pe" | "groupPe",
@@ -14,17 +14,6 @@ type Profile = {
   fields: Fields;
 };
 
-type CatalogSymbol = {
-  id: string;
-  symbol: string;
-  name: string;
-};
-
-type CatalogGroup = {
-  code: string;
-  name: string;
-  symbols: CatalogSymbol[];
-};
 type History = {
   fetchedAt: string;
   rows: string[][];
@@ -38,6 +27,7 @@ type Item = {
 
 const gateway = "https://sahamsanj-market-gateway.amotef.workers.dev";
 const digits = "۰۱۲۳۴۵۶۷۸۹";
+
 const basicRows: Array<[keyof Fields, string]> = [
   ["marketValue", "ارزش بازار"],
   ["eps", "سود هر سهم"],
@@ -134,55 +124,7 @@ export default function ComparePage() {
   const [data, setData] = useState<Item[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [catalog, setCatalog] = useState<CatalogGroup[]>([]);
-  const [catalogLoading, setCatalogLoading] = useState(true);
-  const [catalogError, setCatalogError] = useState("");
-  const [selectedGroup, setSelectedGroup] = useState("");
-  const [selectedSymbol, setSelectedSymbol] = useState("");
-  const [targetSlot, setTargetSlot] = useState(0);
 
-  useEffect(() => {
-    let active = true;
-
-    void (async () => {
-      try {
-        const response = await fetch("/SahamSanj/market-catalog.json", {
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          throw new Error("فهرست رسمی نمادها هنوز آماده نشده است.");
-        }
-
-        const payload = (await response.json()) as { groups?: CatalogGroup[] };
-        const groups = Array.isArray(payload.groups) ? payload.groups : [];
-
-        if (groups.length === 0) {
-          throw new Error("فهرست رسمی نمادها خالی است.");
-        }
-
-        if (!active) return;
-
-        setCatalog(groups);
-        setSelectedGroup(groups[0]?.code ?? "");
-        setCatalogError("");
-      } catch (cause) {
-        if (!active) return;
-
-        setCatalogError(
-          cause instanceof Error
-            ? cause.message
-            : "دریافت فهرست رسمی نمادها ناموفق بود."
-        );
-      } finally {
-        if (active) setCatalogLoading(false);
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, []);
   async function compare() {
     const entered = input.map((value) => value.trim()).filter(Boolean);
 
@@ -245,7 +187,6 @@ export default function ComparePage() {
     }
   }
 
-  const activeGroup = catalog.find((group) => group.code === selectedGroup);
   const ranking = [...data]
     .map((item) => ({ id: item.id, score: score(item) }))
     .sort((a, b) => b.score - a.score);
@@ -265,105 +206,6 @@ export default function ComparePage() {
             نمای یک نماد
           </a>
         </header>
-
-        <section className="mb-5 rounded-3xl border border-teal-100 bg-teal-50 p-5 shadow-sm">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-sm font-bold text-teal-700">فهرست رسمی بازار</p>
-              <h2 className="mt-1 text-xl font-black">انتخاب نماد از گروه صنعتی</h2>
-            </div>
-            <p className="text-sm text-slate-600">
-              {catalogLoading ? "در حال دریافت فهرست عمومی…" : `${fa(String(catalog.length))} گروه رسمی`}
-            </p>
-          </div>
-
-          {catalogError ? (
-            <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-900">
-              {catalogError}
-            </p>
-          ) : null}
-
-          {!catalogLoading && catalog.length ? (
-            <div className="mt-4 grid gap-3 lg:grid-cols-4">
-              <label className="text-sm font-bold text-slate-700">
-                گروه صنعتی
-                <select
-                  value={selectedGroup}
-                  onChange={(event) => {
-                    setSelectedGroup(event.target.value);
-                    setSelectedSymbol("");
-                  }}
-                  className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-3 py-3 font-normal outline-none focus:border-teal-600"
-                >
-                  {catalog.map((group) => (
-                    <option value={group.code} key={group.code}>
-                      {group.name} ({fa(String(group.symbols.length))} نماد)
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="text-sm font-bold text-slate-700">
-                نماد
-                <select
-                  value={selectedSymbol}
-                  onChange={(event) => setSelectedSymbol(event.target.value)}
-                  disabled={!activeGroup}
-                  className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-3 py-3 font-normal outline-none focus:border-teal-600 disabled:bg-slate-100"
-                >
-                  <option value="">انتخاب نماد</option>
-                  {activeGroup?.symbols.map((symbol) => (
-                    <option value={symbol.id} key={symbol.id}>
-                      {symbol.symbol} — {symbol.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="text-sm font-bold text-slate-700">
-                قرارگیری در
-                <select
-                  value={targetSlot}
-                  onChange={(event) => setTargetSlot(Number(event.target.value))}
-                  className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-3 py-3 font-normal outline-none focus:border-teal-600"
-                >
-                  <option value={0}>نماد ۱</option>
-                  <option value={1}>نماد ۲</option>
-                  <option value={2}>نماد ۳</option>
-                </select>
-              </label>
-
-              <button
-                type="button"
-                disabled={!selectedSymbol}
-                onClick={() => {
-                  const symbol = activeGroup?.symbols.find(
-                    (item) => item.id === selectedSymbol
-                  );
-
-                  if (!symbol) {
-                    setCatalogError("ابتدا یک نماد از فهرست رسمی انتخاب کن.");
-                    return;
-                  }
-
-                  setInput((current) =>
-                    current.map((item, index) =>
-                      index === targetSlot ? symbol.id : item
-                    )
-                  );
-                  setCatalogError("");
-                }}
-                className="min-h-12 rounded-2xl bg-teal-700 px-5 font-bold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                افزودن به مقایسه
-              </button>
-            </div>
-          ) : null}
-
-          <p className="mt-4 text-sm leading-7 text-slate-600">
-            فهرست رسمی بازار همراه همین نسخه بارگذاری می‌شود. پس از افزودن، دکمهٔ «مقایسهٔ نمادها» را بزن.
-          </p>
-        </section>
 
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="grid gap-3 lg:grid-cols-4">
