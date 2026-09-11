@@ -1,4 +1,4 @@
-name: Probe market catalogue snapshot
+name: Inspect packaged instrument snapshot
 
 on:
   workflow_dispatch:
@@ -12,15 +12,26 @@ permissions:
   contents: read
 
 jobs:
-  probe:
+  inspect:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Probe packaged instruments snapshot
+      - name: Inspect tse-client package contents
         run: |
-          npm exec --yes --package=tse-client@2.27.5 tse i --cols "InsCode,Symbol,Name,CSecVal" --header > /tmp/instruments.csv
-          test -s /tmp/instruments.csv
-          echo "rows=$(tail -n +2 /tmp/instruments.csv | wc -l)"
-          echo "bytes=$(wc -c < /tmp/instruments.csv)"
-          head -n 5 /tmp/instruments.csv
+          mkdir -p /tmp/tse-package
+          cd /tmp/tse-package
+          npm pack tse-client@2.27.5
+          tar -xzf tse-client-2.27.5.tgz
+
+          echo "=== فایل‌های مرتبط با ابزارها ==="
+          find package -type f | grep -Ei 'instrument|market|symbol|static|data|json|csv' | head -n 200 || true
+
+          echo "=== فایل‌های بزرگ‌تر از 50KB ==="
+          find package -type f -size +50k -printf '%s %p\n' | sort -nr | head -n 80 || true
+
+          echo "=== جست‌وجوی عبارت فولاد در پکیج ==="
+          grep -RIl --exclude='*.map' 'فولاد' package | head -n 40 || true
+
+          echo "=== اندازهٔ کل پکیج ==="
+          du -sh package
